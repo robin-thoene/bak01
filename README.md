@@ -24,7 +24,7 @@ Furthermore you should provide a different port to each instance.
 After you started you backends, you should start the load balancer:
 
 ```shell
-cargo watch -w load-balancer -x "run --bin load-balancer -- --port 3000 --servers 127.0.0.1:8080"
+cargo watch -w load-balancer -x "run --bin load-balancer -- --port 3000 --proxy-type tcp --servers 127.0.0.1:8080"
 ```
 
 NOTE: Depending on the number of started backends, the `--servers` argument will be different.
