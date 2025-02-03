@@ -38,6 +38,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt().with_env_filter(filter).init();
     let args = Args::parse();
     debug!("parsed cli arguments: {:?}", args);
+    if args.servers.is_empty() {
+        panic!("At least one backend server must be provided");
+    }
     let listener_addr = format!("127.0.0.1:{}", args.port);
     info!("Listening on: {listener_addr}");
     match args.proxy_type {
