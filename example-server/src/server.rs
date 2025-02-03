@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use axum::{Router, response::Html, routing::get};
 use std::{error::Error, net::SocketAddr, str, time::Duration};
 use tokio::{
@@ -8,80 +9,35 @@ use tokio::{
 };
 use tracing::{error, info};
 
-pub enum Protocol {
-    Tcp,
-    Udp,
-    Http,
+#[async_trait]
+pub trait Serverable {
+    fn new(port: u16) -> Self
+    where
+        Self: Sized;
+    async fn run(&self) -> Result<(), Box<dyn Error>>;
 }
 
-pub struct Server {
-    protocol: Protocol,
+pub struct UdpServer {
     address: String,
 }
 
-impl Server {
-    /// Initialize a new server
-    ///
-    /// # Arguments
-    ///
-    /// * `protocol` - The protocol to use
-    /// * `port` - The port to use
-    pub fn new(protocol: Protocol, port: u16) -> Self {
-        Server {
-            protocol,
+pub struct TcpServer {
+    address: String,
+}
+
+pub struct HttpServer {
+    address: String,
+}
+
+#[async_trait]
+impl Serverable for UdpServer {
+    fn new(port: u16) -> Self {
+        UdpServer {
             address: format!("127.0.0.1:{}", port),
         }
     }
 
-    /// Runs the server based on the given configuration
-    ///
-    /// # Errors
-    ///
-    /// Any error that might occur
-    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
-        match self.protocol {
-            Protocol::Tcp => self.run_tcp_server().await,
-            Protocol::Udp => self.run_udp_server().await,
-            Protocol::Http => self.run_http_server().await,
-        }
-    }
-
-    /// Runs a simple TCP server that keeps the connection
-    /// alive and sends a message to the connected client
-    /// in intervals
-    ///
-    /// # Errors
-    ///
-    /// Any error that might occur
-    async fn run_tcp_server(&self) -> Result<(), Box<dyn Error>> {
-        let listener = TcpListener::bind(&self.address).await?;
-        info!(
-            "Listening on: {}",
-            listener
-                .local_addr()
-                .expect("Could not get local socket address")
-        );
-        loop {
-            let (mut socket, _) = listener.accept().await?;
-            spawn(async move {
-                loop {
-                    socket
-                        .write_all(b"Tic\n")
-                        .await
-                        .expect("failed to write data to socket");
-                    sleep(Duration::from_secs(1)).await;
-                }
-            });
-        }
-    }
-
-    /// Runs a simple UDP server that responds to a clients
-    /// message by sending it back
-    ///
-    /// # Errors
-    ///
-    /// Any error that might occur
-    async fn run_udp_server(&self) -> Result<(), Box<dyn Error>> {
+    async fn run(&self) -> Result<(), Box<dyn Error>> {
         let socket = UdpSocket::bind(&self.address).await?;
         info!(
             "Listening on: {}",
@@ -119,10 +75,48 @@ impl Server {
             to_send = Some(socket.recv_from(&mut buf).await?);
         }
     }
+}
 
-    /// Runs a simple HTTP server that responds
-    /// with HTML
-    async fn run_http_server(&self) -> Result<(), Box<dyn Error>> {
+#[async_trait]
+impl Serverable for TcpServer {
+    fn new(port: u16) -> Self {
+        TcpServer {
+            address: format!("127.0.0.1:{}", port),
+        }
+    }
+
+    async fn run(&self) -> Result<(), Box<dyn Error>> {
+        let listener = TcpListener::bind(&self.address).await?;
+        info!(
+            "Listening on: {}",
+            listener
+                .local_addr()
+                .expect("Could not get local socket address")
+        );
+        loop {
+            let (mut socket, _) = listener.accept().await?;
+            spawn(async move {
+                loop {
+                    socket
+                        .write_all(b"Tic\n")
+                        .await
+                        .expect("failed to write data to socket");
+                    sleep(Duration::from_secs(1)).await;
+                }
+            });
+        }
+    }
+}
+
+#[async_trait]
+impl Serverable for HttpServer {
+    fn new(port: u16) -> Self {
+        HttpServer {
+            address: format!("127.0.0.1:{}", port),
+        }
+    }
+
+    async fn run(&self) -> Result<(), Box<dyn Error>> {
         async fn root_handler() -> Html<&'static str> {
             Html("<h1>Hello, World!</h1>")
         }

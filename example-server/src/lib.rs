@@ -2,12 +2,11 @@ pub mod clap;
 pub mod server;
 
 use ::clap::Parser;
+use clap::{CliArgs, ServerType};
+use server::{HttpServer, Serverable, TcpServer, UdpServer};
 use std::error::Error;
 use tracing::{debug, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
-
-use crate::clap::CliArgs;
-use crate::server::{Protocol, Server};
 
 /// Runs the application
 ///
@@ -23,7 +22,11 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     // Parse arguments and build config
     let args = CliArgs::parse();
     debug!("parsed cli arguments: {:?}", args);
-    let server = Server::new(Protocol::from(args.server_type), args.port);
-    // Run the server with the desired configuration
+    // Run the desired server type
+    let server: Box<dyn Serverable> = match args.server_type {
+        ServerType::Udp => Box::new(UdpServer::new(args.port)),
+        ServerType::Tcp => Box::new(TcpServer::new(args.port)),
+        ServerType::Http => Box::new(HttpServer::new(args.port)),
+    };
     server.run().await
 }
