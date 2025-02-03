@@ -7,7 +7,7 @@ use tokio::{
     spawn,
     time::sleep,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 #[async_trait]
 pub trait Serverable {
@@ -38,6 +38,7 @@ impl Serverable for UdpServer {
     }
 
     async fn run(&self) -> Result<(), Box<dyn Error>> {
+        debug!("Starting HTTP server");
         let socket = UdpSocket::bind(&self.address).await?;
         info!(
             "Listening on: {}",
@@ -86,6 +87,7 @@ impl Serverable for TcpServer {
     }
 
     async fn run(&self) -> Result<(), Box<dyn Error>> {
+        debug!("Starting TCP server");
         let listener = TcpListener::bind(&self.address).await?;
         info!(
             "Listening on: {}",
@@ -117,6 +119,7 @@ impl Serverable for HttpServer {
     }
 
     async fn run(&self) -> Result<(), Box<dyn Error>> {
+        debug!("Starting HTTP server");
         async fn root_handler() -> Html<&'static str> {
             Html("<h1>Hello, World!</h1>")
         }
