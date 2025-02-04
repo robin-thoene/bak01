@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use axum::{Router, response::Html, routing::get};
+use axum::{Router, extract::Path, response::Html, routing::get};
 use std::{error::Error, net::SocketAddr, str, time::Duration};
 use tokio::{
     io::AsyncWriteExt,
@@ -120,10 +120,10 @@ impl Serverable for HttpServer {
 
     async fn run(&self) -> Result<(), Box<dyn Error>> {
         debug!("Starting HTTP server");
-        async fn root_handler() -> Html<&'static str> {
-            Html("<h1>Hello, World!</h1>")
-        }
-        let app = Router::new().route("/", get(root_handler));
+
+        let app = Router::new()
+            .route("/", get(root_handler))
+            .route("/greet/{first_name}", get(greet_handler));
         let listener = tokio::net::TcpListener::bind(&self.address).await?;
         info!(
             "listening on {}",
@@ -134,4 +134,12 @@ impl Serverable for HttpServer {
         axum::serve(listener, app).await?;
         Ok(())
     }
+}
+
+async fn root_handler() -> Html<&'static str> {
+    Html("<h1>Hello, World!</h1>")
+}
+
+async fn greet_handler(Path(first_name): Path<String>) -> Html<String> {
+    Html(format!("<h1>Hello {}!</h1>", first_name))
 }
