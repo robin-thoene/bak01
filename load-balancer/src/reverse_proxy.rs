@@ -9,7 +9,7 @@ use tracing::{debug, error, info};
 
 #[async_trait]
 pub trait Proxy {
-    fn new(port: u16, available_servers: Vec<String>) -> Self
+    fn new(port: u16, servers: Vec<String>) -> Self
     where
         Self: Sized;
     async fn run(&self) -> Result<(), Box<dyn Error>>;
