@@ -1,10 +1,12 @@
 pub mod clap;
-pub mod server;
+pub mod load_balancer;
+pub mod reverse_proxy;
 
 use ::clap::Parser;
 use clap::{CliArgs, ProxyType};
-use server::{Proxy, TcpProxy, UdpProxy};
-use std::error::Error;
+use load_balancer::{LoadBalancer, RoundRobinLoadBalancer};
+use reverse_proxy::{Proxy, TcpProxy, UdpProxy};
+use std::{error::Error, sync::Arc};
 use tracing::{debug, level_filters::LevelFilter};
 use tracing_subscriber::EnvFilter;
 
@@ -27,9 +29,10 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
         panic!("At least one backend server must be provided");
     }
     // Run the desired proxy type
+    let round = Arc::new(RoundRobinLoadBalancer::new(args.servers));
     let proxy: Box<dyn Proxy> = match args.proxy_type {
-        ProxyType::Udp => Box::new(UdpProxy::new(args.port, args.servers)),
-        ProxyType::Tcp => Box::new(TcpProxy::new(args.port, args.servers)),
+        ProxyType::Udp => Box::new(UdpProxy::new(args.port, round)),
+        ProxyType::Tcp => Box::new(TcpProxy::new(args.port, round)),
     };
     proxy.run().await
 }
