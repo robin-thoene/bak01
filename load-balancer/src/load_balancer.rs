@@ -53,11 +53,17 @@ impl LoadBalancer for RoundRobinLoadBalancer {
 
     fn get_next_server(&self) -> SocketAddr {
         let i = self.next_index.fetch_add(1, Ordering::SeqCst) % self.servers.len();
-        debug!("Choose server {}", i);
-        *self
+        let server = *self
             .servers
             .get(i)
-            .expect("At least one server must always be configured")
+            .expect("Expect server in vec to be present");
+
+        debug!(
+            "Choose server at index {}, forwarding req to {}",
+            i,
+            server.to_string()
+        );
+        server
     }
 }
 

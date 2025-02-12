@@ -18,12 +18,12 @@ pub trait Proxy {
 
 pub struct UdpProxy {
     address: String,
-    _load_balancer: Arc<dyn LoadBalancer>,
+    load_balancer: Arc<dyn LoadBalancer>,
 }
 
 pub struct TcpProxy {
     address: String,
-    _load_balancer: Arc<dyn LoadBalancer>,
+    load_balancer: Arc<dyn LoadBalancer>,
 }
 
 #[async_trait]
@@ -31,7 +31,7 @@ impl Proxy for UdpProxy {
     fn new(port: u16, load_balancer: Arc<dyn LoadBalancer>) -> Self {
         Self {
             address: format!("127.0.0.1:{}", port),
-            _load_balancer: load_balancer,
+            load_balancer,
         }
     }
 
@@ -61,7 +61,7 @@ impl Proxy for TcpProxy {
     fn new(port: u16, load_balancer: Arc<dyn LoadBalancer>) -> Self {
         Self {
             address: format!("127.0.0.1:{}", port),
-            _load_balancer: load_balancer,
+            load_balancer,
         }
     }
 
@@ -70,7 +70,7 @@ impl Proxy for TcpProxy {
         let listener = TcpListener::bind(&self.address).await?;
         info!("Listening on: {}", &self.address);
         while let Ok((mut inbound, _)) = listener.accept().await {
-            let server = Arc::clone(&self._load_balancer).get_next_server();
+            let server = Arc::clone(&self.load_balancer).get_next_server();
             let mut outbound = TcpStream::connect(server).await?;
             tokio::spawn(async move {
                 copy_bidirectional(&mut inbound, &mut outbound)
