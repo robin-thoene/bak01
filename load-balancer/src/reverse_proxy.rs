@@ -43,7 +43,7 @@ impl Proxy for UdpProxy {
         let mut buf = vec![0; 1024];
         loop {
             if let Some((size, peer)) = to_send {
-                let server = "127.0.0.1:8080";
+                let server = Arc::clone(&self.load_balancer).get_next_server();
                 // Forward the data to the selected UDP server
                 proxy_socket.send_to(&buf[..size], server).await?;
                 // Receive the answer from the server
