@@ -3,8 +3,8 @@ pub mod load_balancer;
 pub mod reverse_proxy;
 
 use ::clap::Parser;
-use clap::{CliArgs, ProxyType};
-use load_balancer::{LoadBalancer, RoundRobinLoadBalancer};
+use clap::{CliArgs, LoadBalancerType, ProxyType};
+use load_balancer::{LeastConnectionLoadBalancer, LoadBalancer, RoundRobinLoadBalancer};
 use reverse_proxy::{Proxy, TcpProxy, UdpProxy};
 use std::{error::Error, sync::Arc};
 use tracing::{debug, level_filters::LevelFilter};
@@ -24,15 +24,29 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     // Parse arguments and build config
     let args = CliArgs::parse();
     debug!("parsed cli arguments: {:?}", args);
-    // Ensure that at least one backend to proxy is provided
+    // Ensure that the CLI arguments are valid
     if args.servers.is_empty() {
         panic!("At least one backend server must be provided");
     }
+    if args.proxy_type == ProxyType::Udp
+        && args.load_balancer_type == LoadBalancerType::LeastConnection
+    {
+        panic!(
+            "The load balancer type {:?} is not valid for {:?} proxies.",
+            LoadBalancerType::LeastConnection,
+            ProxyType::Udp
+        );
+    }
     // Run the desired proxy type
-    let round = Arc::new(RoundRobinLoadBalancer::new(args.servers));
+    let lb: Arc<dyn LoadBalancer> = match args.load_balancer_type {
+        LoadBalancerType::RoundRobin => Arc::new(RoundRobinLoadBalancer::new(args.servers)),
+        LoadBalancerType::LeastConnection => {
+            Arc::new(LeastConnectionLoadBalancer::new(args.servers))
+        }
+    };
     let proxy: Box<dyn Proxy> = match args.proxy_type {
-        ProxyType::Udp => Box::new(UdpProxy::new(args.port, round)),
-        ProxyType::Tcp => Box::new(TcpProxy::new(args.port, round)),
+        ProxyType::Udp => Box::new(UdpProxy::new(args.port, lb)),
+        ProxyType::Tcp => Box::new(TcpProxy::new(args.port, lb)),
     };
     proxy.run().await
 }
