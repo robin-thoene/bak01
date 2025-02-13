@@ -1,6 +1,6 @@
 use std::{
     net::SocketAddr,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicU32, AtomicUsize, Ordering},
 };
 
 use tracing::debug;
@@ -18,7 +18,7 @@ pub struct RoundRobinLoadBalancer {
 }
 
 pub struct LeastConnectionLoadBalancer {
-    servers: Vec<SocketAddr>,
+    servers: Vec<(SocketAddr, AtomicU32)>,
 }
 
 ///
@@ -57,7 +57,6 @@ impl LoadBalancer for RoundRobinLoadBalancer {
             .servers
             .get(i)
             .expect("Expect server in vec to be present");
-
         debug!(
             "Choose server at index {}, forwarding req to {}",
             i,
@@ -69,15 +68,28 @@ impl LoadBalancer for RoundRobinLoadBalancer {
 
 impl LoadBalancer for LeastConnectionLoadBalancer {
     fn new(servers: Vec<String>) -> Self {
-        Self {
-            servers: parse_server_addresses_from_string(servers),
-        }
+        let server_socket_addr = parse_server_addresses_from_string(servers);
+        let servers = server_socket_addr
+            .iter()
+            .map(|x| (*x, AtomicU32::new(0)))
+            .collect::<Vec<(SocketAddr, AtomicU32)>>();
+        Self { servers }
     }
 
     fn get_next_server(&self) -> SocketAddr {
-        *self
+        // TODO: Impl least connection server selection
+        let server = self
             .servers
-            .first()
-            .expect("At least one server must always be configured")
+            .iter()
+            .min_by_key(|x| x.1.load(Ordering::Relaxed))
+            .expect("At least one server must always be configured");
+        debug!(
+            "Current servers: {:?},  forwarding req to {}",
+            self.servers,
+            server.0.to_string()
+        );
+        // Ensure that the new connection is being tracked
+        server.1.fetch_add(1, Ordering::SeqCst);
+        server.0
     }
 }
