@@ -70,7 +70,8 @@ impl Proxy for TcpProxy {
         let listener = TcpListener::bind(&self.address).await?;
         info!("Listening on: {}", &self.address);
         while let Ok((mut inbound, _)) = listener.accept().await {
-            let server = Arc::clone(&self.load_balancer).get_next_server();
+            let lb = Arc::clone(&self.load_balancer);
+            let server = lb.get_next_server();
             let mut outbound = TcpStream::connect(server).await?;
             tokio::spawn(async move {
                 copy_bidirectional(&mut inbound, &mut outbound)
@@ -79,7 +80,8 @@ impl Proxy for TcpProxy {
                             error!("Failed to transfer; error={e}");
                         }
                     })
-                    .await
+                    .await;
+                lb.update_server(server);
             });
         }
         Ok(())

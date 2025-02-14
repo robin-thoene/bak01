@@ -10,6 +10,7 @@ pub trait LoadBalancer: Sync + Send {
     where
         Self: Sized;
     fn get_next_server(&self) -> SocketAddr;
+    fn update_server(&self, server: SocketAddr);
 }
 
 pub struct RoundRobinLoadBalancer {
@@ -64,6 +65,14 @@ impl LoadBalancer for RoundRobinLoadBalancer {
         );
         server
     }
+
+    fn update_server(&self, server: SocketAddr) {
+        // The round robin algorithm does not care about server state changes
+        debug!(
+            "Skipping update of server {}, round robin has nothing to do",
+            server.to_string()
+        )
+    }
 }
 
 impl LoadBalancer for LeastConnectionLoadBalancer {
@@ -77,7 +86,6 @@ impl LoadBalancer for LeastConnectionLoadBalancer {
     }
 
     fn get_next_server(&self) -> SocketAddr {
-        // TODO: Impl least connection server selection
         let server = self
             .servers
             .iter()
@@ -91,5 +99,13 @@ impl LoadBalancer for LeastConnectionLoadBalancer {
         // Ensure that the new connection is being tracked
         server.1.fetch_add(1, Ordering::SeqCst);
         server.0
+    }
+
+    fn update_server(&self, server: SocketAddr) {
+        let server_mut = self.servers.iter().find(|x| x.0 == server);
+        if let Some(server_mut) = server_mut {
+            debug!("Remove one connection from server {}", server.to_string());
+            server_mut.1.fetch_sub(1, Ordering::SeqCst);
+        }
     }
 }
