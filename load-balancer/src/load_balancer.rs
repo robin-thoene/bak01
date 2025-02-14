@@ -2,7 +2,6 @@ use std::{
     net::SocketAddr,
     sync::atomic::{AtomicU32, AtomicUsize, Ordering},
 };
-
 use tracing::debug;
 
 pub trait LoadBalancer: Sync + Send {
@@ -22,7 +21,6 @@ pub struct LeastConnectionLoadBalancer {
     servers: Vec<(SocketAddr, AtomicU32)>,
 }
 
-///
 /// Parses a list of server addresses in string format to the needed
 /// datatype to run a proxy server.
 ///

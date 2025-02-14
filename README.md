@@ -6,6 +6,11 @@ The git repository to work on the university module BAK01. The repository contai
 server application to be load balanced, that can be used as HTTP, TCP or UDP server. The
 second application is the actual load balancer.
 
+## Remarks
+
+This project is for education purpose only. It is not meant to and should not be used in
+production!
+
 ## Local development
 
 ### Starting sample backend servers
