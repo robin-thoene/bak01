@@ -2,7 +2,7 @@ use std::{
     net::SocketAddr,
     sync::atomic::{AtomicU32, AtomicUsize, Ordering},
 };
-use tracing::debug;
+use tracing::{debug, error, info};
 
 pub trait LoadBalancer: Sync + Send {
     fn new(servers: Vec<String>) -> Self
@@ -56,11 +56,7 @@ impl LoadBalancer for RoundRobinLoadBalancer {
             .servers
             .get(i)
             .expect("Expect server in vec to be present");
-        debug!(
-            "Choose server at index {}, forwarding req to {}",
-            i,
-            server.to_string()
-        );
+        info!("Forwarding req to server {}", server.to_string());
         server
     }
 
@@ -89,21 +85,31 @@ impl LoadBalancer for LeastConnectionLoadBalancer {
             .iter()
             .min_by_key(|x| x.1.load(Ordering::Relaxed))
             .expect("At least one server must always be configured");
-        debug!(
-            "Current servers: {:?},  forwarding req to {}",
-            self.servers,
-            server.0.to_string()
-        );
+        debug!("Old server state: {:?}", self.servers);
+        info!("Forwarding req to server {}", server.0.to_string());
         // Ensure that the new connection is being tracked
         server.1.fetch_add(1, Ordering::SeqCst);
         server.0
     }
 
-    fn update_server(&self, server: SocketAddr) {
-        let server_mut = self.servers.iter().find(|x| x.0 == server);
-        if let Some(server_mut) = server_mut {
-            debug!("Remove one connection from server {}", server.to_string());
-            server_mut.1.fetch_sub(1, Ordering::SeqCst);
+    fn update_server(&self, server_addr: SocketAddr) {
+        let server = self.servers.iter().find(|x| x.0 == server_addr);
+        if let Some(server) = server {
+            if server.1.load(Ordering::Relaxed) > 0 {
+                info!("Client disconnected from server {}", server.0.to_string());
+                server.1.fetch_sub(1, Ordering::SeqCst);
+                debug!("New server state: {:?}", self.servers);
+            } else {
+                error!(
+                    "Can not decrease connection count for server {}, connection count is already 0",
+                    server.0.to_string()
+                );
+            }
+        } else {
+            error!(
+                "Could not find server {} in serverlist {:?}",
+                server_addr, self.servers
+            );
         }
     }
 }
