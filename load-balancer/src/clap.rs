@@ -1,9 +1,15 @@
 use clap::{Parser, ValueEnum};
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum, PartialEq)]
 pub enum ProxyType {
     Udp,
     Tcp,
+}
+
+#[derive(Debug, Clone, ValueEnum, PartialEq)]
+pub enum LoadBalancerType {
+    RoundRobin,
+    LeastConnection,
 }
 
 #[derive(Parser, Debug)]
@@ -20,4 +26,6 @@ pub struct CliArgs {
         help = "The protocol to use for the proxy"
     )]
     pub proxy_type: ProxyType,
+    #[arg(short, long, help = "The type of load balancer algorithm")]
+    pub load_balancer_type: LoadBalancerType,
 }
